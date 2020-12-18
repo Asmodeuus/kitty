@@ -24,13 +24,13 @@ bool is_threshold( const TT& tt, std::vector<int64_t>* plf = nullptr )
 	
 	if ( unate( tt_star, &inv ) )
 	{
-		lp_solver( tt_star, plf, &inv ) ;
+		return lp_solver( tt_star, plf, &inv ) ;
 	}
 	else 
 	{
 		 return false;
 	}
-
+	
 }
 
 template<typename TT, typename = std::enable_if_t<is_complete_truth_table<TT>::value>>
@@ -54,20 +54,20 @@ bool lp_solver( TT& tt,  std::vector<int64_t>* plf, std::vector<int64_t>* inv )
 	if ( ( variables == NULL ) || ( weights == NULL ) )
 		return false;
 		
-	std::vector<cube> ONSET = isop( tt );
-	std::vector<cube> OFFSET = isop( unary_not( tt ) );
-	//we set the variables to integer
-	for ( uint8_t i = 1; i <= Ncol; i++ )
+	auto ONSET = isop( tt );
+	auto OFFSET = isop( unary_not( tt ) );
+	
+	for ( auto i = 1; i <= Ncol; i++ )
 	{
 	    set_int( lp, i, TRUE ); 
 	}
 	  
 	set_add_rowmode( lp, TRUE );
 
-	for ( cube cube : ONSET )
+	for ( auto& cube : ONSET )
 	{
 		j = 0;
-		for ( uint8_t = 0; i < tt.num_vars(); i++ )
+		for ( unsigned int i = 0; i < tt.num_vars(); i++ )
 		{
 			if ( cube.get_mask( i ) ) //Check if the variable is in the cube
 			{
@@ -76,7 +76,7 @@ bool lp_solver( TT& tt,  std::vector<int64_t>* plf, std::vector<int64_t>* inv )
 				j++;
 			}
 		}
-		variables[j] = Ncol; /* this is the right part of the constraint : weight put to -1 */
+		variables[j] = Ncol; 
 		weights[j] = -1; 
 		j++;
 		
@@ -84,10 +84,10 @@ bool lp_solver( TT& tt,  std::vector<int64_t>* plf, std::vector<int64_t>* inv )
 	}
 
 
-	for ( cube cube : OFFSET )
+	for ( auto& cube : OFFSET )
 	{
 		j = 0;
-		for ( uint8_t i = 0; i < tt.num_vars(); i++ )
+		for ( uint64_t i = 0; i < tt.num_vars(); i++ )
 		{
 			if ( !cube.get_mask( i ) ) 
 			{
@@ -96,16 +96,16 @@ bool lp_solver( TT& tt,  std::vector<int64_t>* plf, std::vector<int64_t>* inv )
 				j++;
 			}
 		}
-		variables[j] = Ncol; /* this is the right part of the constraint : weight put to -1 */
+		variables[j] = Ncol;
 		weights[j] = -1;
 		j++;
 	
 		add_constraintex( lp, j, weights, variables, LE, -1 );
 	}
 	
-	 for (uint8_t i = 0; i < tt.num_vars() + 1; i++) 
+	 for (uint64_t i = 0; i < tt.num_vars() + 1; i++) 
 	 {
-            for (uint8_t j = 0; j < tt.num_vars() + 1; j++) 
+            for (uint64_t j = 0; j < tt.num_vars() + 1; j++) 
             {
                 variables[j] = j + 1;
                 weights[j] = (i == j) ? 1 : 0;
@@ -114,23 +114,21 @@ bool lp_solver( TT& tt,  std::vector<int64_t>* plf, std::vector<int64_t>* inv )
             add_constraintex(lp, tt.num_vars() + 1, weights, variables, GE, 0);
         }
 
-	set_add_rowmode( lp, FALSE ); /* turned off because we are done building the model */
+	set_add_rowmode( lp, FALSE );
 
 	
-	for ( uint8_t i = 0; i < Ncol; i++ )
+	for ( auto i = 0; i < Ncol; i++ )
 	{
 		variables[i] = i + 1;
 		weights[i] = 1;
 	}
 	set_obj_fnex( lp, Ncol, weights, variables );
-	/* set the objective in lpsolve */
 	
-	//we need to minimize the objective function
 	
 	set_minim( lp );
 	set_verbose(lp,0);
 	/* Do the trick */
-	if ( solve( lp ) != OPTIMAL ) //This is not a Threshold function if LP doesn't give an optimal solution
+	if ( solve( lp ) != OPTIMAL ) 
 		return false;
 
 	
@@ -140,7 +138,6 @@ bool lp_solver( TT& tt,  std::vector<int64_t>* plf, std::vector<int64_t>* inv )
 	for ( j = 0; j < Ncol; j++ )
 	{
 		bool not_empty = ( inv->size() != 0 );
-		
 		if ( ( not_empty ) && ( inv->at( 0 ) == j ) )
 		{
 			sum += weights[j];
@@ -166,7 +163,7 @@ bool lp_solver( TT& tt,  std::vector<int64_t>* plf, std::vector<int64_t>* inv )
 			}
 		}
 	}
-	
+
 	if ( weights != NULL )
 	{
 		free( weights );
@@ -192,21 +189,21 @@ bool unate( TT& tt, std::vector<int64_t>* inv )
 	bool neg_unate = false;
 	
 
-	for ( uint8_t i = 0u; i < tt.num_vars(); i++ )
+	for ( auto i = 0u; i < tt.num_vars(); i++ )
 	{
-		pos_unate = false; //reinitialization because we check the unateness for each variable
+		pos_unate = false; //reinitialization because we start again for each variable
 		neg_unate = false;
 
-		TT const tt_neg = cofactor0( tt, i );
-		TT const tt_pos = cofactor1( tt, i );
-		for ( TT position = 0; position < ( 1 <<  tt.num_vars() ); position++ )
+		auto const tt_neg = cofactor0( tt, i );
+		auto const tt_pos = cofactor1( tt, i );
+		for ( auto bit = 0; bit < ( 1 <<  tt.num_vars() ); bit++ )
 		{
-			if ( get_bit( tt_neg, position ) < get_bit( tt_pos, position ) )
+			if ( get_bit( tt_neg, bit ) < get_bit( tt_pos, bit ) )
 			{
 				pos_unate = true;
 			}
 
-			else if ( get_bit( tt_neg, position ) > get_bit( tt_pos, position ) )
+			else if ( get_bit( tt_neg, bit ) > get_bit( tt_pos, bit ) )
 			{
 				neg_unate = true;
 			}
@@ -218,9 +215,9 @@ bool unate( TT& tt, std::vector<int64_t>* inv )
 			return false;
 		}
 		
-		if ( neg_unate )
+		else if ( neg_unate )
 		{
-			inv->push_back( i ); 			//we save the inv variables for the linear transfo
+			inv->push_back( i ); 			//we save the inv variables for the linear for transfo
 			
 			for ( int position  = ( 1 << ( i + 1 ) ); position  < ( 1 << tt.num_vars() ); position  = position  +( 1 << ( i + 2 ) ) )
 			{
